@@ -1,70 +1,72 @@
-# Getting Started with Create React App
+# Feedback Master
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+AWS Hackathon 2025 프로젝트 - Team LMJ
 
-## Available Scripts
+## 프로젝트 소개
 
-In the project directory, you can run:
+코멘트와 피드백을 자동으로 생성하고 관리하는 웹 애플리케이션입니다.
 
-### `npm start`
+## 주요 기능
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 1. 코멘트/피드백 생성하기
+- 프로젝트 URL 입력
+- 에피소드 번호 설정 (최대 5개)
+- 고객사 가이드 문서 업로드 (Excel, PDF)
+- AI 기반 코멘트 및 피드백 자동 생성
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 2. 생성 내용 조회하기
+- 생성 코멘트 목록 조회
+- 종합 피드백 목록 조회
+- 슬랙 피드백 발송 이력 조회
+- 구글 스프레드시트 연동
 
-### `npm test`
+### 3. 옵션 설정하기
+- 점수 산정 기준 설정 (파일 업로드 또는 구글 스프레드시트)
+- 태그 적용 기준 설정
+- 슬랙 메시지 전송 설정
+- 슬랙 메시지 양식 커스터마이징
+- 피드백 미확인 알림 설정
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 기술 스택
 
-### `npm run build`
+- **Frontend**: React.js
+- **Styling**: CSS3
+- **Storage**: localStorage
+- **Integration**: Google Sheets, Slack
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 설치 및 실행
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+# 의존성 설치
+npm install
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# 개발 서버 실행
+npm start
+```
 
-### `npm run eject`
+## 프로젝트 구조
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```
+src/
+├── components/          # 재사용 가능한 컴포넌트
+│   ├── Button.js
+│   ├── Input.js
+│   ├── FileUpload.js
+│   ├── RadioGroup.js
+│   ├── Switch.js
+│   ├── Textarea.js
+│   ├── SettingsSection.js
+│   ├── Sidebar.js
+│   └── Components.css
+├── App.js              # 메인 애플리케이션
+├── App.css             # 메인 스타일
+└── FM_logo.png         # 로고 이미지
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 팀 정보
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+**Team LMJ** - AWS Hackathon 2025
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 라이선스
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+이 프로젝트는 MIT 라이선스 하에 배포됩니다.
