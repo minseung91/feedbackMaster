@@ -105,43 +105,55 @@ class TranslationReviewSheetsUploader:
     
     def get_project_name_from_xlsx(self, file_path: str) -> str:
         """
-        해당하는 ep_X.xlsx 파일에서 job_name 값을 추출
+        해당하는 ep_X-Y.xlsx 파일에서 project_name 컬럼의 두 번째 행 값을 추출
         
         Args:
             file_path (str): translation_review_llm.csv 파일 경로
             
         Returns:
-            str: project_name (job_name 값)
+            str: project_name (project_name 컬럼의 두 번째 행 값)
         """
         try:
+            # project_uuid와 episode_range 추출
+            project_uuid = self.extract_project_uuid(file_path)
+            
+            # 에피소드 범위 추출 (예: 4-6)
             path = Path(file_path)
-            episode_num = path.parent.name  # "1", "2", "3" 등
+            # preprocessed/4/translation_review_llm.csv에서 상위로 올라가서 episode_range 찾기
+            preprocessed_dir = path.parent.parent  # preprocessed 디렉토리
+            episode_range_dir = preprocessed_dir.parent  # 4-6 디렉토리
+            episode_range = episode_range_dir.name  # "4-6"
             
-            # preprocessed 디렉토리로 이동
-            preprocessed_dir = path.parent.parent
+            # 동적으로 Excel 파일 경로 생성: ../data/{uuid}/{range}/ep_{range}.xlsx
+            excel_filename = f"ep_{episode_range}.xlsx"
+            excel_path = Path("../data") / project_uuid / episode_range / excel_filename
             
-            # 해당 에피소드의 XLSX 파일 경로
-            xlsx_file_path = preprocessed_dir / f"ep_{episode_num}.xlsx"
-            
-            if not xlsx_file_path.exists():
-                logger.warning(f"XLSX 파일을 찾을 수 없습니다: {xlsx_file_path}")
+            if not excel_path.exists():
+                logger.warning(f"XLSX 파일을 찾을 수 없습니다: {excel_path}")
                 return "unknown"
             
-            # XLSX 파일 읽기
-            df = pd.read_excel(xlsx_file_path)
+            # XLSX 파일 읽기 (첫 두 행만)
+            df = pd.read_excel(excel_path, nrows=2)
             
-            # job_name 칼럼에서 첫 번째 값 가져오기
-            if 'job_name' in df.columns:
-                job_names = df['job_name'].dropna().unique()
-                if len(job_names) > 0:
-                    project_name = str(job_names[0])
-                    logger.info(f"프로젝트명 추출: {project_name} (from {xlsx_file_path.name})")
-                    return project_name
+            # project_name 칼럼의 두 번째 행에서 값 가져오기
+            if 'project_name' in df.columns:
+                if len(df) > 1:
+                    project_name_value = df.iloc[1]['project_name']
+                    if pd.notna(project_name_value):
+                        project_name = str(project_name_value).strip()
+                        logger.info(f"프로젝트명 추출: {project_name} (from {excel_path.name})")
+                        return project_name
+                    else:
+                        logger.warning(f"project_name 컬럼의 두 번째 행이 비어있습니다: {excel_path}")
+                        return "unknown"
                 else:
-                    logger.warning(f"job_name 값이 없습니다: {xlsx_file_path}")
+                    logger.warning(f"Excel 파일에 두 번째 행이 없습니다: {excel_path}")
                     return "unknown"
             else:
-                logger.warning(f"job_name 칼럼을 찾을 수 없습니다: {xlsx_file_path}")
+                logger.warning(f"project_name 컬럼을 찾을 수 없습니다: {excel_path}")
+                # 디버깅을 위해 사용 가능한 컬럼 출력
+                if not df.empty:
+                    logger.info(f"사용 가능한 컬럼: {list(df.columns)}")
                 return "unknown"
                 
         except Exception as e:

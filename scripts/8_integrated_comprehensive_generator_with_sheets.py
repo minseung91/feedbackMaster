@@ -89,18 +89,24 @@ class SimpleComprehensiveFeedbackUploader:
                 excel_path = os.path.join("../data", project_uuid, episode_range, excel_filename)
                 
                 if os.path.exists(excel_path):
-                    # Excel 파일의 첫 번째 시트, 첫 번째 행에서 프로젝트 이름 추출
-                    df = pd.read_excel(excel_path, nrows=1)  # 첫 번째 행만 읽기
-                    if not df.empty and len(df.columns) > 0:
-                        # 첫 번째 열의 첫 번째 값을 프로젝트 이름으로 사용
-                        first_value = df.iloc[0, 0]
-                        if pd.notna(first_value):
-                            project_name = str(first_value).strip()
-                            print(f"📋 Excel에서 프로젝트 이름 추출: {project_name}")
+                    # Excel 파일에서 project_name 컬럼의 두 번째 행 값 추출
+                    df = pd.read_excel(excel_path, nrows=2)  # 첫 두 행만 읽기
+                    if not df.empty and 'project_name' in df.columns:
+                        # project_name 컬럼의 두 번째 행 값 (인덱스 1)
+                        if len(df) > 1:
+                            project_name_value = df.iloc[1]['project_name']
+                            if pd.notna(project_name_value):
+                                project_name = str(project_name_value).strip()
+                                print(f"📋 Excel에서 프로젝트 이름 추출: {project_name}")
+                            else:
+                                print(f"⚠️ project_name 컬럼의 두 번째 행이 비어있습니다: {excel_path}")
                         else:
-                            print(f"⚠️ Excel 첫 번째 셀이 비어있습니다: {excel_path}")
+                            print(f"⚠️ Excel 파일에 두 번째 행이 없습니다: {excel_path}")
                     else:
-                        print(f"⚠️ Excel 파일이 비어있습니다: {excel_path}")
+                        print(f"⚠️ project_name 컬럼을 찾을 수 없습니다: {excel_path}")
+                        # 컬럼명 출력하여 디버깅
+                        if not df.empty:
+                            print(f"   사용 가능한 컬럼: {list(df.columns)}")
                 else:
                     print(f"⚠️ Excel 파일을 찾을 수 없습니다: {excel_path}")
             except Exception as e:
