@@ -1,9 +1,26 @@
 const express = require('express');
 const multer = require('multer');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const os = require('os');
 const cors = require('cors');
+
+// 환경변수 로드 (zshrc에서)
+try {
+  if (!process.env.HACKATHON_GEMINI_API_KEY) {
+    console.log('환경변수 로드 중...');
+    const envOutput = execSync('source ~/.zshrc && echo $HACKATHON_GEMINI_API_KEY', { 
+      shell: '/bin/zsh',
+      encoding: 'utf8' 
+    }).trim();
+    if (envOutput && envOutput !== '$HACKATHON_GEMINI_API_KEY') {
+      process.env.HACKATHON_GEMINI_API_KEY = envOutput;
+      console.log('✅ HACKATHON_GEMINI_API_KEY 환경변수 로드 완료');
+    }
+  }
+} catch (error) {
+  console.warn('⚠️  환경변수 로드 실패:', error.message);
+}
 
 const app = express();
 const port = process.env.PORT || 4220;
@@ -60,9 +77,12 @@ app.post('/run', upload.single('guideDocument'), (req, res) => {
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 
-  // conda 환경에서 실행 (conda가 PATH에 있어야 함)
+  // conda 환경에서 실행 (환경변수 전달)
   const child = spawn('conda', ['run', '-n', CONDA_ENV, '/bin/bash', SCRIPT_PATH, ...args], {
-    env: { ...process.env },
+    env: { 
+      ...process.env,
+      HACKATHON_GEMINI_API_KEY: process.env.HACKATHON_GEMINI_API_KEY
+    },
     stdio: ['pipe', 'pipe', 'pipe']
   });
 

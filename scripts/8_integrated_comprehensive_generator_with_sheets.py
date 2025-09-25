@@ -8,6 +8,7 @@
 
 import sys
 import os
+import datetime
 from pathlib import Path
 
 # 현재 디렉토리와 상위 디렉토리를 Python 경로에 추가
@@ -26,12 +27,94 @@ comprehensive_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(comprehensive_module)
 ComprehensiveReportGenerator = comprehensive_module.ComprehensiveReportGenerator
 
-from comprehensive_feedback_uploader import ComprehensiveFeedbackUploader
 import logging
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+class SimpleComprehensiveFeedbackUploader:
+    """간단한 종합 피드백 업로더"""
+    
+    def __init__(self, credentials_path: str, spreadsheet_id: str):
+        self.credentials_path = credentials_path
+        self.spreadsheet_id = spreadsheet_id
+        self.client = self._authenticate()
+    
+    def _authenticate(self):
+        """Google Sheets API 인증"""
+        try:
+            scopes = [
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive'
+            ]
+            credentials = Credentials.from_service_account_file(
+                self.credentials_path, 
+                scopes=scopes
+            )
+            return gspread.authorize(credentials)
+        except Exception as e:
+            logger.error(f"Google Sheets API 인증 실패: {e}")
+            raise
+    
+    def upload_single_report(self, report_file_path: str, sheet_name: str = "종합 검수 피드백") -> bool:
+        """단일 리포트 파일을 업로드"""
+        try:
+            # 파일 읽기
+            with open(report_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 프로젝트 정보 추출
+            import re
+            from pathlib import Path
+            
+            uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+            uuid_match = re.search(uuid_pattern, report_file_path, re.IGNORECASE)
+            project_uuid = uuid_match.group(1) if uuid_match else "unknown"
+            
+            episode_pattern = r'/(\d+-\d+)/'
+            episode_match = re.search(episode_pattern, report_file_path)
+            episode_range = episode_match.group(1) if episode_match else "unknown"
+            
+            # 스프레드시트 열기
+            spreadsheet = self.client.open_by_key(self.spreadsheet_id)
+            
+            try:
+                worksheet = spreadsheet.worksheet(sheet_name)
+            except:
+                worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+            
+            # 기존 데이터 확인
+            existing_data = worksheet.get_all_values()
+            
+            if not existing_data:
+                # 헤더 추가
+                headers = ['project_uuid', 'episode_range', 'report_content', 'created_at']
+                worksheet.update([headers], 'A1:D1')
+                row_to_update = 2
+            else:
+                row_to_update = len(existing_data) + 1
+            
+            # 새 데이터 추가
+            new_row = [
+                project_uuid,
+                episode_range, 
+                content,
+                str(datetime.now())
+            ]
+            
+            range_name = f"A{row_to_update}:D{row_to_update}"
+            worksheet.update([new_row], range_name)
+            
+            print(f"📝 {1}개의 새 데이터가 추가되었습니다.")
+            return True
+            
+        except Exception as e:
+            logger.error(f"업로드 실패: {e}")
+            return False
 
 
 class IntegratedComprehensiveGeneratorWithSheets:
@@ -47,7 +130,7 @@ class IntegratedComprehensiveGeneratorWithSheets:
         """
         self.credentials_path = credentials_path
         self.spreadsheet_id = spreadsheet_id
-        self.sheets_uploader = ComprehensiveFeedbackUploader(credentials_path, spreadsheet_id)
+        self.sheets_uploader = SimpleComprehensiveFeedbackUploader(credentials_path, spreadsheet_id)
     
     def generate_and_upload(self, 
                           base_path: str, 

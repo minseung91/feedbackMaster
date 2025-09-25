@@ -30,14 +30,29 @@ print_usage() {
 USAGE
 }
 
-# (기존 동작과 동일하게 보이도록) 기본값
-DEFAULT_PROJECT_URL="https://admin.totus.pro/en/workProgressManagementDetail/?id=60af877a-4d7e-465a-875d-37c6f324917e"
-DEFAULT_EPISODE_NUMBER="1-3"
-DEFAULT_GUIDE_PATH="/Users/p-152/Desktop/Project/Ongoing/aws-agent-practice/data/client_guideline/ONO_guidline.md"
-DEFAULT_SLACK_SEND="y"
-DEFAULT_SLACK_TEMPLATE=""
+# # (기존 동작과 동일하게 보이도록) 기본값
+# DEFAULT_PROJECT_URL="https://admin.totus.pro/en/workProgressManagementDetail/?id=60af877a-4d7e-465a-875d-37c6f324917e"
+# DEFAULT_EPISODE_NUMBER="1-3"
+# DEFAULT_GUIDE_PATH="/Users/p-152/Desktop/Project/Ongoing/aws-agent-practice/data/client_guideline/ONO_guidline.md"
+# DEFAULT_SLACK_SEND="y"
+# DEFAULT_SLACK_TEMPLATE=""
 
 # 환경변수 → 기본값 순
+# API 키 환경변수 불러오기
+if [ -z "$HACKATHON_GEMINI_API_KEY" ]; then
+    # ~/.zshrc에서 환경변수 불러오기
+    source ~/.zshrc 2>/dev/null || true
+fi
+
+# API 키가 여전히 없으면 경고
+if [ -z "$HACKATHON_GEMINI_API_KEY" ]; then
+    echo -e "${RED}⚠️  경고: HACKATHON_GEMINI_API_KEY 환경변수가 설정되지 않았습니다.${NC}"
+    echo -e "${RED}   ~/.zshrc에 'export HACKATHON_GEMINI_API_KEY=\"your_api_key\"'를 추가하고${NC}"
+    echo -e "${RED}   'source ~/.zshrc'를 실행해주세요.${NC}"
+fi
+
+# 환경변수를 export하여 하위 프로세스에서도 사용 가능하도록 설정
+export HACKATHON_GEMINI_API_KEY
 PROJECT_URL="${PROJECT_URL:-$DEFAULT_PROJECT_URL}"
 EPISODE_NUMBER="${EPISODE_NUMBER:-$DEFAULT_EPISODE_NUMBER}"
 GUIDE_PATH="${GUIDE_PATH:-$DEFAULT_GUIDE_PATH}"

@@ -11,10 +11,10 @@ import os
 import sys
 from pathlib import Path
 import re
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from google_sheets_uploader import GoogleSheetsUploader
 from datetime import datetime
 import logging
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,7 +34,23 @@ class TranslationReviewSheetsUploader:
         """
         self.credentials_path = credentials_path
         self.spreadsheet_id = spreadsheet_id
-        self.uploader = GoogleSheetsUploader(credentials_path)
+        self.client = self._authenticate()
+    
+    def _authenticate(self):
+        """Google Sheets API 인증"""
+        try:
+            scopes = [
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive'
+            ]
+            credentials = Credentials.from_service_account_file(
+                self.credentials_path, 
+                scopes=scopes
+            )
+            return gspread.authorize(credentials)
+        except Exception as e:
+            logger.error(f"Google Sheets API 인증 실패: {e}")
+            raise
         
     def extract_project_uuid(self, file_path: str) -> str:
         """
@@ -267,7 +283,7 @@ class TranslationReviewSheetsUploader:
         """
         try:
             # 스프레드시트 열기
-            spreadsheet = self.uploader.open_spreadsheet(self.spreadsheet_id)
+            spreadsheet = self.client.open_by_key(self.spreadsheet_id)
             
             # 시트 찾기 또는 생성
             try:
