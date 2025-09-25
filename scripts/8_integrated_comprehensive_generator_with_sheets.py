@@ -70,6 +70,8 @@ class SimpleComprehensiveFeedbackUploader:
             # 프로젝트 정보 추출
             import re
             from pathlib import Path
+            import pandas as pd
+            import os
             
             uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
             uuid_match = re.search(uuid_pattern, report_file_path, re.IGNORECASE)
@@ -78,6 +80,32 @@ class SimpleComprehensiveFeedbackUploader:
             episode_pattern = r'/(\d+-\d+)/'
             episode_match = re.search(episode_pattern, report_file_path)
             episode_range = episode_match.group(1) if episode_match else "unknown"
+            
+            # 프로젝트 이름 추출 (Excel 파일에서)
+            project_name = "unknown"
+            try:
+                # 상대 경로로 Excel 파일 찾기
+                excel_filename = f"ep_{episode_range}.xlsx"
+                excel_path = os.path.join("../data", project_uuid, episode_range, excel_filename)
+                
+                if os.path.exists(excel_path):
+                    # Excel 파일의 첫 번째 시트, 첫 번째 행에서 프로젝트 이름 추출
+                    df = pd.read_excel(excel_path, nrows=1)  # 첫 번째 행만 읽기
+                    if not df.empty and len(df.columns) > 0:
+                        # 첫 번째 열의 첫 번째 값을 프로젝트 이름으로 사용
+                        first_value = df.iloc[0, 0]
+                        if pd.notna(first_value):
+                            project_name = str(first_value).strip()
+                            print(f"📋 Excel에서 프로젝트 이름 추출: {project_name}")
+                        else:
+                            print(f"⚠️ Excel 첫 번째 셀이 비어있습니다: {excel_path}")
+                    else:
+                        print(f"⚠️ Excel 파일이 비어있습니다: {excel_path}")
+                else:
+                    print(f"⚠️ Excel 파일을 찾을 수 없습니다: {excel_path}")
+            except Exception as e:
+                print(f"⚠️ 프로젝트 이름 추출 중 오류: {e}")
+                logger.warning(f"프로젝트 이름 추출 실패: {e}")
             
             # 스프레드시트 열기
             spreadsheet = self.client.open_by_key(self.spreadsheet_id)
@@ -92,23 +120,23 @@ class SimpleComprehensiveFeedbackUploader:
             
             if not existing_data:
                 # 헤더 추가
-                headers = ['project_uuid', 'episode_range', 'report_content', 'created_at']
+                headers = ['project_uuid', 'project_name', 'ep_range', 'overall_feedback']
                 worksheet.update([headers], 'A1:D1')
                 
                 # 첫 번째 데이터 추가
                 new_row = [
                     project_uuid,
+                    project_name,
                     episode_range, 
-                    content,
-                    str(datetime.datetime.now())
+                    content
                 ]
                 worksheet.update([new_row], 'A2:D2')
                 print(f"📝 {1}개의 새 데이터가 추가되었습니다.")
                 return True
             
-            # 중복 확인 (같은 project_uuid + episode_range)
+            # 중복 확인 (같은 project_uuid + ep_range)
             for i, row in enumerate(existing_data[1:], start=2):  # 헤더 제외
-                if len(row) >= 2 and row[0] == project_uuid and row[1] == episode_range:
+                if len(row) >= 3 and row[0] == project_uuid and row[2] == episode_range:
                     print(f"📋 동일한 데이터가 이미 존재합니다. (행 {i}: {project_uuid} - {episode_range})")
                     return True
             
@@ -127,8 +155,8 @@ class SimpleComprehensiveFeedbackUploader:
             
             # 같은 프로젝트 내에서 에피소드 순서에 맞는 위치 찾기
             for i, row in enumerate(existing_data[1:], start=2):  # 헤더 제외
-                if len(row) >= 2 and row[0] == project_uuid:
-                    existing_episode_start = parse_episode_range(row[1])
+                if len(row) >= 3 and row[0] == project_uuid:
+                    existing_episode_start = parse_episode_range(row[2])  # ep_range는 3번째 컬럼
                     if current_episode_start < existing_episode_start:
                         insert_row = i
                         break
@@ -136,9 +164,9 @@ class SimpleComprehensiveFeedbackUploader:
             # 새 데이터 준비
             new_row = [
                 project_uuid,
+                project_name,
                 episode_range, 
-                content,
-                str(datetime.datetime.now())
+                content
             ]
             
             # 삽입 위치가 맨 뒤가 아니면 기존 데이터를 한 행씩 아래로 이동
