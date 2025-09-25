@@ -1,0 +1,29 @@
+# 파이프라인 실행에 필요한 Python 라이브러리들
+
+# 데이터 처리
+pandas>=2.0.0
+openpyxl>=3.0.0
+
+# Google API 관련
+google-generativeai>=0.8.0
+google-genai
+genai
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+gspread>=5.0.0
+
+# 텍스트 처리 및 비교
+jiwer>=2.3.0
+
+# 병렬 처리 및 기타
+# concurrent.futures는 Python 3.2+ 표준 라이브러리
+
+# 기본 라이브러리 (Python 표준 라이브러리)
+# os, sys, json, csv, re, glob, datetime, threading, logging, typing, collections, importlib
+# 이들은 Python 표준 라이브러리이므로 별도 설치 불필요
+
+# 참고사항:
+# - difflib, pathlib, concurrent.futures는 Python 표준 라이브러리이므로 별도 설치 불필요
+# - 일부 모듈들은 프로젝트 내부 모듈이므로 requirements에 포함하지 않음
+#   (token_cost_calculator, google_sheets_uploader, comprehensive_feedback_uploader)

@@ -36,13 +36,54 @@ AWS Hackathon 2025 프로젝트 - Team LMJ
 
 ## 설치 및 실행
 
+### 1. 환경 설정
+
+#### API 키 설정 (필수)
 ```bash
-# 의존성 설치
+# ~/.zshrc 파일에 Gemini API 키 추가
+echo 'export HACKATHON_GEMINI_API_KEY="your_actual_api_key_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+#### Google Sheets API 설정 (선택사항)
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성
+2. Google Sheets API 활성화
+3. 서비스 계정 생성 및 키 다운로드
+4. `scripts/credentials.json`에 키 파일 저장
+
+### 2. 프로젝트 설치
+
+```bash
+# 저장소 클론
+git clone <repository-url>
+cd feedbackMaster
+
+# 프론트엔드 의존성 설치
 npm install
 
-# 개발 서버 실행
-npm start
+# 백엔드 의존성 설치
+cd server
+npm install
+cd ..
+
+# Python 의존성 설치 (파이프라인용)
+cd scripts
+pip install -r requirements.txt
+cd ..
 ```
+
+### 3. 실행
+
+```bash
+# 백엔드 서버 실행 (터미널 1)
+cd server
+npm start
+
+# 프론트엔드 실행 (터미널 2)
+PORT=3001 npm start
+```
+
+애플리케이션이 `http://localhost:3001`에서 실행됩니다.
 
 ## 프로젝트 구조
 

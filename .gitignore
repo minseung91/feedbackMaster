@@ -11,10 +11,22 @@
 
 # Misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Sensitive files - DO NOT COMMIT
+scripts/credentials.json
+**/credentials.json
+**/*.key
+**/*_key.json
+**/*_credentials.json
+
+# Data directories (may contain sensitive information)
+data/
+scripts/__pycache__/
 
 # Logs
 npm-debug.log*
