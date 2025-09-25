@@ -147,6 +147,149 @@ def process_single_csv_file(csv_file_path, guideline_path=None, model_name="gemi
             'success': False
         }
 
+def validate_llm_response(parsed_response):
+    """
+    LLM 응답의 유효성을 검증
+    
+    Args:
+        parsed_response (list): 파싱된 JSON 응답
+        
+    Returns:
+        bool: 응답이 유효한지 여부
+    """
+    if not isinstance(parsed_response, list):
+        return False
+    
+    if len(parsed_response) == 0:
+        return False
+    
+    # 각 항목이 필수 필드를 포함하고 있는지 확인
+    for item in parsed_response:
+        if not isinstance(item, dict):
+            return False
+        
+        # 필수 필드 확인
+        required_fields = ['translated_text', 'edited_text', 'tag', 'comment']
+        for field in required_fields:
+            if field not in item:
+                return False
+            
+            # tag와 comment가 비어있지 않은지 확인
+            if field == 'tag':
+                if not isinstance(item[field], list) or len(item[field]) == 0:
+                    return False
+                # 빈 태그가 있는지 확인
+                if any(not tag.strip() for tag in item[field]):
+                    return False
+            elif field == 'comment':
+                if not isinstance(item[field], str) or not item[field].strip():
+                    return False
+    
+    return True
+
+def call_llm_with_retry(prompt, system_instruction_content, batch_data, cost_calculator=None, max_retries=2):
+    """
+    LLM을 호출하고 응답이 유효하지 않으면 재시도
+    
+    Args:
+        prompt (str): LLM에 보낼 프롬프트
+        system_instruction_content (str): 시스템 인스트럭션
+        batch_data (dict): 배치 데이터
+        cost_calculator: 비용 계산기
+        max_retries (int): 최대 재시도 횟수
+        
+    Returns:
+        tuple: (성공 여부, 파싱된 응답, 누적 비용 정보)
+    """
+    all_cost_info = []
+    
+    for attempt in range(max_retries + 1):  # 최초 시도 + 재시도
+        try:
+            print(f"배치 {batch_data['batch_id']} LLM 호출 시도 {attempt + 1}/{max_retries + 1}")
+            
+            response = client.models.generate_content(
+                model="gemini-2.5-pro",
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction_content),
+                contents=prompt
+            )
+            
+            # 토큰 사용량 및 비용 계산
+            if cost_calculator:
+                cost_info = cost_calculator.calculate_batch_cost(response)
+                all_cost_info.append(cost_info)
+                if attempt == 0:  # 첫 번째 시도에서만 출력
+                    cost_calculator.print_batch_cost(batch_data['batch_id'], cost_info)
+            
+            # 응답에서 JSON 부분만 추출
+            response_text = response.text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            parsed_response = json.loads(response_text.strip())
+            
+            # 응답 유효성 검증
+            if validate_llm_response(parsed_response):
+                print(f"✅ 배치 {batch_data['batch_id']} 유효한 응답 받음 (시도 {attempt + 1})")
+                
+                # 누적 비용 정보 계산
+                total_cost_info = None
+                if all_cost_info:
+                    total_cost_info = all_cost_info[0].copy()  # 첫 번째 비용 정보를 기준으로
+                    if len(all_cost_info) > 1:
+                        # 재시도가 있었다면 비용 합산
+                        for additional_cost in all_cost_info[1:]:
+                            for key in ['input_tokens', 'output_tokens', 'thinking_tokens', 'cached_tokens']:
+                                if key in total_cost_info and key in additional_cost:
+                                    total_cost_info[key] += additional_cost.get(key, 0)
+                            for key in ['input_cost', 'output_cost', 'thinking_cost', 'cached_cost', 'batch_cost']:
+                                if key in total_cost_info and key in additional_cost:
+                                    total_cost_info[key] += additional_cost.get(key, 0.0)
+                        print(f"💰 배치 {batch_data['batch_id']} 재시도로 인한 추가 비용 발생")
+                
+                return True, parsed_response, total_cost_info
+            else:
+                print(f"⚠️ 배치 {batch_data['batch_id']} 응답이 유효하지 않음 (시도 {attempt + 1})")
+                print(f"응답 내용: {response.text[:200]}...")
+                
+                if attempt < max_retries:
+                    print(f"🔄 재시도 중...")
+                    continue
+        
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"⚠️ 배치 {batch_data['batch_id']} JSON 파싱 오류 (시도 {attempt + 1}): {e}")
+            print(f"응답 내용: {response.text[:200]}...")
+            
+            if attempt < max_retries:
+                print(f"🔄 재시도 중...")
+                continue
+        
+        except Exception as e:
+            print(f"❌ 배치 {batch_data['batch_id']} LLM 호출 오류 (시도 {attempt + 1}): {e}")
+            if attempt < max_retries:
+                print(f"🔄 재시도 중...")
+                continue
+    
+    # 모든 시도 실패
+    print(f"❌ 배치 {batch_data['batch_id']} 모든 시도 실패 ({max_retries + 1}회)")
+    
+    # 누적 비용 정보 계산 (실패해도 토큰은 사용됨)
+    total_cost_info = None
+    if all_cost_info:
+        total_cost_info = all_cost_info[0].copy()
+        if len(all_cost_info) > 1:
+            for additional_cost in all_cost_info[1:]:
+                for key in ['input_tokens', 'output_tokens', 'thinking_tokens', 'cached_tokens']:
+                    if key in total_cost_info and key in additional_cost:
+                        total_cost_info[key] += additional_cost.get(key, 0)
+                for key in ['input_cost', 'output_cost', 'thinking_cost', 'cached_cost', 'batch_cost']:
+                    if key in total_cost_info and key in additional_cost:
+                        total_cost_info[key] += additional_cost.get(key, 0.0)
+    
+    return False, None, total_cost_info
+
 # LLM으로 비교 분석하는 함수 (사용자 지정 JSON 형식)
 def analyze_batch_differences(batch_data, guideline_path=None, cost_calculator=None):
     """배치 데이터의 target과 val을 비교하여 수정 사유를 분석 (사용자 지정 JSON 입출력)"""
@@ -218,34 +361,12 @@ def analyze_batch_differences(batch_data, guideline_path=None, cost_calculator=N
         print(f"경고: System instruction 파일을 찾을 수 없습니다: {system_instruction_path}")
         system_instruction_content = "System instruction 파일을 찾을 수 없습니다. 기본 설정으로 진행합니다."
     
-    response = client.models.generate_content(
-        model="gemini-2.5-pro",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction_content),
-        contents=prompt
+    # 재시도 로직이 포함된 LLM 호출
+    success, parsed_response, cost_info = call_llm_with_retry(
+        prompt, system_instruction_content, batch_data, cost_calculator, max_retries=2
     )
     
-    # 토큰 사용량 및 비용 계산
-    cost_info = None
-    if cost_calculator:
-        cost_info = cost_calculator.calculate_batch_cost(response)
-        cost_calculator.print_batch_cost(batch_data['batch_id'], cost_info)
-    
-    # JSON 응답 파싱 시도
-    try:
-        # 응답에서 JSON 부분만 추출 (```json 태그 제거)
-        response_text = response.text.strip()
-        if response_text.startswith('```json'):
-            response_text = response_text[7:]
-        if response_text.endswith('```'):
-            response_text = response_text[:-3]
-        
-        parsed_response = json.loads(response_text.strip())
-        
-        # 응답이 배열인지 확인
-        if not isinstance(parsed_response, list):
-            raise ValueError("응답이 JSON 배열 형식이 아닙니다.")
-        
+    if success:
         result = {
             'batch_id': batch_data['batch_id'],
             'input_data': json_input,
@@ -259,23 +380,20 @@ def analyze_batch_differences(batch_data, guideline_path=None, cost_calculator=N
             result['cost_info'] = cost_info
         
         return result
-        
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"JSON 파싱 오류: {e}")
-        print(f"원본 응답: {response.text}")
-        
+    else:
+        # 모든 시도 실패
         result = {
             'batch_id': batch_data['batch_id'],
             'input_data': json_input,
             'analysis_result': {
-                'error': 'JSON 파싱 실패',
-                'raw_response': response.text
+                'error': '모든 재시도 실패',
+                'raw_response': '유효한 응답을 받지 못함'
             },
             'processed_items': len(batch_data['data']),
             'parsing_success': False
         }
         
-        # 비용 정보 추가 (파싱 실패해도 토큰은 사용됨)
+        # 비용 정보 추가 (실패해도 토큰은 사용됨)
         if cost_info:
             result['cost_info'] = cost_info
         
