@@ -380,7 +380,7 @@ class TranslationReviewSheetsUploader:
                         skipped_count += 1
                 
                 if new_rows:
-                    # 에피소드 순서에 맞는 위치에 삽입하기 위해 정렬
+                    # 에피소드 순서에 맞게 정렬
                     def parse_episode_number(ep_num_str):
                         """에피소드 번호를 파싱하여 정렬용 키 반환"""
                         try:
@@ -391,36 +391,11 @@ class TranslationReviewSheetsUploader:
                     # 새 데이터를 에피소드 번호 순으로 정렬
                     new_rows.sort(key=lambda row: parse_episode_number(row[2]))  # ep_num은 3번째 컬럼(인덱스 2)
                     
-                    # 각 행을 적절한 위치에 삽입
-                    for new_row in new_rows:
-                        current_episode = parse_episode_number(new_row[2])
-                        insert_row = len(existing_data) + 1  # 기본적으로 맨 뒤
-                        
-                        # 같은 프로젝트 내에서 에피소드 순서에 맞는 위치 찾기
-                        for i, existing_row in enumerate(existing_data[1:], start=2):  # 헤더 제외
-                            if len(existing_row) >= 3 and existing_row[0] == new_row[0]:  # 같은 project_uuid
-                                existing_episode = parse_episode_number(existing_row[2])  # ep_num
-                                if current_episode < existing_episode:
-                                    insert_row = i
-                                    break
-                        
-                        # 삽입 위치가 맨 뒤가 아니면 기존 데이터를 한 행씩 아래로 이동
-                        if insert_row <= len(existing_data):
-                            # 기존 데이터를 한 행 아래로 이동
-                            for i in range(len(existing_data), insert_row - 1, -1):
-                                if i < len(existing_data):
-                                    source_range = f"A{i}:{chr(ord('A') + len(headers) - 1)}{i}"
-                                    target_range = f"A{i+1}:{chr(ord('A') + len(headers) - 1)}{i+1}"
-                                    source_values = worksheet.get(source_range)
-                                    if source_values:
-                                        worksheet.update(source_values, target_range)
-                        
-                        # 새 데이터 삽입
-                        range_name = f"A{insert_row}:{chr(ord('A') + len(headers) - 1)}{insert_row}"
-                        worksheet.update([new_row], range_name)
-                        
-                        # existing_data 업데이트 (다음 반복을 위해)
-                        existing_data.insert(insert_row - 1, new_row)
+                    # 기존 데이터 다음 행부터 한 번에 추가 (API 호출 최소화)
+                    start_row = len(existing_data) + 1
+                    end_row = start_row + len(new_rows) - 1
+                    range_name = f"A{start_row}:{chr(ord('A') + len(headers) - 1)}{end_row}"
+                    worksheet.update(new_rows, range_name)
                     
                     print(f"📝 {len(new_rows)}개의 새 데이터가 에피소드 순서에 맞게 추가되었습니다.")
                     if skipped_count > 0:
