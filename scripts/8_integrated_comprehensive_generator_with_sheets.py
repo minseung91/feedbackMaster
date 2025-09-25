@@ -94,22 +94,69 @@ class SimpleComprehensiveFeedbackUploader:
                 # 헤더 추가
                 headers = ['project_uuid', 'episode_range', 'report_content', 'created_at']
                 worksheet.update([headers], 'A1:D1')
-                row_to_update = 2
-            else:
-                row_to_update = len(existing_data) + 1
+                
+                # 첫 번째 데이터 추가
+                new_row = [
+                    project_uuid,
+                    episode_range, 
+                    content,
+                    str(datetime.datetime.now())
+                ]
+                worksheet.update([new_row], 'A2:D2')
+                print(f"📝 {1}개의 새 데이터가 추가되었습니다.")
+                return True
             
-            # 새 데이터 추가
+            # 중복 확인 (같은 project_uuid + episode_range)
+            for i, row in enumerate(existing_data[1:], start=2):  # 헤더 제외
+                if len(row) >= 2 and row[0] == project_uuid and row[1] == episode_range:
+                    print(f"📋 동일한 데이터가 이미 존재합니다. (행 {i}: {project_uuid} - {episode_range})")
+                    return True
+            
+            # 에피소드 범위를 기준으로 삽입 위치 찾기
+            def parse_episode_range(ep_range):
+                """에피소드 범위를 파싱하여 시작 번호 반환 (정렬용)"""
+                try:
+                    if '-' in ep_range:
+                        return int(ep_range.split('-')[0])
+                    return int(ep_range)
+                except:
+                    return 999  # 파싱 실패 시 맨 뒤로
+            
+            current_episode_start = parse_episode_range(episode_range)
+            insert_row = len(existing_data) + 1  # 기본적으로 맨 뒤
+            
+            # 같은 프로젝트 내에서 에피소드 순서에 맞는 위치 찾기
+            for i, row in enumerate(existing_data[1:], start=2):  # 헤더 제외
+                if len(row) >= 2 and row[0] == project_uuid:
+                    existing_episode_start = parse_episode_range(row[1])
+                    if current_episode_start < existing_episode_start:
+                        insert_row = i
+                        break
+            
+            # 새 데이터 준비
             new_row = [
                 project_uuid,
                 episode_range, 
                 content,
-                str(datetime.now())
+                str(datetime.datetime.now())
             ]
             
-            range_name = f"A{row_to_update}:D{row_to_update}"
+            # 삽입 위치가 맨 뒤가 아니면 기존 데이터를 한 행씩 아래로 이동
+            if insert_row <= len(existing_data):
+                # 기존 데이터를 한 행 아래로 이동
+                for i in range(len(existing_data), insert_row - 1, -1):
+                    if i < len(existing_data):
+                        source_range = f"A{i}:D{i}"
+                        target_range = f"A{i+1}:D{i+1}"
+                        source_values = worksheet.get(source_range)
+                        if source_values:
+                            worksheet.update(source_values, target_range)
+            
+            # 새 데이터 삽입
+            range_name = f"A{insert_row}:D{insert_row}"
             worksheet.update([new_row], range_name)
             
-            print(f"📝 {1}개의 새 데이터가 추가되었습니다.")
+            print(f"📝 {1}개의 새 데이터가 행 {insert_row}에 추가되었습니다. (에피소드 순서 정렬)")
             return True
             
         except Exception as e:
