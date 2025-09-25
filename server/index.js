@@ -53,9 +53,11 @@ app.post('/run', upload.single('guideDocument'), (req, res) => {
   // run_pipeline.sh 에 맞춘 인자 매핑
   const args = ['-u', projectUrl, '-e', episodes];
   
-  // 가이드 문서 경로 추가
+  // 가이드 문서 경로 추가 (없으면 'none' 전달)
   if (guidePath) {
     args.push('-g', guidePath);
+  } else {
+    args.push('-g', 'none');
   }
   
   // 슬랙 전송 여부 추가

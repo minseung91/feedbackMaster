@@ -16,6 +16,7 @@ function App() {
   const [projectUrl, setProjectUrl] = useState('');
   const [episodes, setEpisodes] = useState(['']);
   const [guideDocument, setGuideDocument] = useState(null);
+  const [hasGuideDocument, setHasGuideDocument] = useState(true); // 가이드 문서 유무 선택
   const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   
@@ -172,7 +173,7 @@ function App() {
         formData.append('slackEnabled', slackEnabled);
         formData.append('slackTemplate', slackTemplate);
         
-        if (guideDocument) {
+        if (hasGuideDocument && guideDocument) {
           formData.append('guideDocument', guideDocument);
         }
         
@@ -181,7 +182,7 @@ function App() {
           episodes: episodesStr,
           slackEnabled,
           slackTemplate,
-          hasGuideDocument: !!guideDocument
+          hasGuideDocument: hasGuideDocument && !!guideDocument
         });
         
         // EventSource를 사용하여 실시간 로그 수신
@@ -343,11 +344,25 @@ function App() {
               </SettingsSection>
 
               <SettingsSection title="고객사 가이드 문서">
-                <FileUpload
-                  accept=".xlsx,.xls,.pdf"
-                  onChange={(e) => setGuideDocument(e.target.files[0])}
-                  selectedFile={guideDocument}
+                <RadioGroup
+                  name="guideDocumentOption"
+                  options={[
+                    { value: true, label: '가이드 문서 있음' },
+                    { value: false, label: '가이드 문서 없음' }
+                  ]}
+                  selectedValue={hasGuideDocument}
+                  onChange={setHasGuideDocument}
                 />
+                
+                {hasGuideDocument && (
+                  <div style={{ marginTop: '12px' }}>
+                    <FileUpload
+                      accept=".xlsx,.xls,.pdf"
+                      onChange={(e) => setGuideDocument(e.target.files[0])}
+                      selectedFile={guideDocument}
+                    />
+                  </div>
+                )}
               </SettingsSection>
             </div>
             

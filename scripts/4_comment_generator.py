@@ -152,19 +152,19 @@ def analyze_batch_differences(batch_data, guideline_path=None, cost_calculator=N
     """배치 데이터의 target과 val을 비교하여 수정 사유를 분석 (사용자 지정 JSON 입출력)"""
     
     # 가이드라인 파일 읽기
-    guideline_content = "가이드라인 파일이 제공되지 않았습니다."
-    if guideline_path and os.path.exists(guideline_path):
+    guideline_content = "클라이언트 가이드라인이 없습니다. 위의 태그 선택 기준 내의 [가이드라인 준수] 설명만으로 판단합니다."
+    if guideline_path and guideline_path.lower() != 'none' and os.path.exists(guideline_path):
         try:
             with open(guideline_path, 'r', encoding='utf-8') as f:
                 guideline_content = f.read()
             # print(f"📋 가이드라인 파일 로드됨: {guideline_path}")
         except Exception as e:
             print(f"경고: 가이드라인 파일 읽기 실패 ({guideline_path}): {e}")
-            guideline_content = "가이드라인 파일 읽기에 실패했습니다."
-    elif guideline_path:
+            guideline_content = "클라이언트 가이드라인이 없습니다. 위의 태그 선택 기준 내의 [가이드라인 준수] 설명만으로 판단합니다."
+    elif guideline_path and guideline_path.lower() != 'none':
         print(f"경고: 가이드라인 파일을 찾을 수 없습니다: {guideline_path}")
     else:
-        print("경고: 가이드라인 파일 경로가 제공되지 않았습니다. 가이드라인 없이 진행합니다.")
+        print("가이드라인 파일이 제공되지 않았습니다. 기본 가이드라인으로 진행합니다.")
     
     # 사용자 지정 JSON 입력 형식으로 구성
     json_input = []
