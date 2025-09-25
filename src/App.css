@@ -108,6 +108,25 @@
   margin-bottom: 0;
 }
 
+.input-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.episode-preview {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+.episode-preview small {
+  color: #495057;
+}
+
 .sidebar-footer {
   position: absolute;
   bottom: 24px;

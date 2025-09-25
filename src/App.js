@@ -114,16 +114,49 @@ function App() {
     setEpisodes(newEpisodes);
   };
 
-  const handleGenerate = () => {
+  // 에피소드 번호를 범위로 변환하는 함수
+  const convertEpisodesToRange = (episodes) => {
+    // 빈 값 제거 및 숫자로 변환
+    const validNumbers = episodes
+      .map(ep => parseInt((ep || '').trim()))
+      .filter(num => !isNaN(num) && num > 0)
+      .sort((a, b) => a - b);
+    
+    if (validNumbers.length === 0) return '';
+    
+    // 연속된 숫자들을 범위로 그룹화
+    const ranges = [];
+    let start = validNumbers[0];
+    let end = validNumbers[0];
+    
+    for (let i = 1; i < validNumbers.length; i++) {
+      if (validNumbers[i] === end + 1) {
+        // 연속된 숫자
+        end = validNumbers[i];
+      } else {
+        // 연속이 끊김, 현재 범위를 저장하고 새 범위 시작
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = end = validNumbers[i];
+      }
+    }
+    
+    // 마지막 범위 추가
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    
+    return ranges.join(',');
+  };
+
+  const handleGenerate = async () => {
     // 필수값 검증
     if (!projectUrl.trim()) {
       alert('입력되지 않은 필수 항목이 있습니다. 확인 후 다시 시도해주세요.');
       return;
     }
     
-    const validEpisodes = episodes.filter(ep => ep.trim() !== '');
-    if (validEpisodes.length === 0) {
-      alert('입력되지 않은 필수 항목이 있습니다. 확인 후 다시 시도해주세요.');
+    // 에피소드를 범위로 변환
+    const episodesStr = convertEpisodesToRange(episodes);
+    if (!episodesStr) {
+      alert('입력되지 않은 필수 항목이 있습니다. 확인 후 다시 시도해주세요. (Episodes)');
       return;
     }
     
@@ -131,23 +164,90 @@ function App() {
     if (window.confirm('입력된 내용으로 코멘트 및 피드백을 생성하시겠습니까?')) {
       setIsLoading(true);
       
-      const data = {
-        projectUrl,
-        episodes: validEpisodes,
-        guideDocument
-      };
-      console.log('AI Agent에 전달할 데이터:', data);
-      
-      // 5초 후 로딩 종료 및 토스트 표시
-      setTimeout(() => {
-        setIsLoading(false);
-        setShowToast(true);
+      try {
+        // FormData 생성 (파일 업로드를 위해)
+        const formData = new FormData();
+        formData.append('projectUrl', projectUrl);
+        formData.append('episodes', episodesStr);
+        formData.append('slackEnabled', slackEnabled);
+        formData.append('slackTemplate', slackTemplate);
         
-        // 3초 후 토스트 숨김
-        setTimeout(() => {
-          setShowToast(false);
-        }, 3000);
-      }, 5000);
+        if (guideDocument) {
+          formData.append('guideDocument', guideDocument);
+        }
+        
+        console.log('파이프라인 실행 요청 데이터:', {
+          projectUrl,
+          episodes: episodesStr,
+          slackEnabled,
+          slackTemplate,
+          hasGuideDocument: !!guideDocument
+        });
+        
+        // EventSource를 사용하여 실시간 로그 수신
+        const response = await fetch('http://localhost:4220/run', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // 응답이 Server-Sent Events인 경우
+        if (response.headers.get('content-type')?.includes('text/event-stream')) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  console.log('파이프라인 로그:', data);
+                  
+                  if (data.type === 'complete') {
+                    setIsLoading(false);
+                    if (data.success) {
+                      setShowToast(true);
+                      setTimeout(() => setShowToast(false), 3000);
+                    } else {
+                      alert('파이프라인 실행 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+                    }
+                  } else if (data.type === 'error') {
+                    setIsLoading(false);
+                    alert('파이프라인 실행 중 오류가 발생했습니다: ' + data.message);
+                  }
+                } catch (e) {
+                  console.log('파싱 오류:', e, line);
+                }
+              }
+            }
+          }
+        } else {
+          // 일반 JSON 응답인 경우
+          const result = await response.json();
+          setIsLoading(false);
+          
+          if (result.success) {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+          } else {
+            alert('파이프라인 실행 실패: ' + (result.message || '알 수 없는 오류'));
+          }
+        }
+        
+      } catch (error) {
+        console.error('파이프라인 실행 오류:', error);
+        setIsLoading(false);
+        alert('파이프라인 실행 중 오류가 발생했습니다: ' + error.message);
+      }
     }
   };
 
@@ -196,14 +296,18 @@ function App() {
                 />
               </SettingsSection>
 
-              <SettingsSection title="에피소드 번호 (최대 5개)" required={true}>
+              <SettingsSection title="에피소드 번호 (개별 입력, 최대 5개)" required={true}>
+                <p className="input-description">
+                  각 필드에 에피소드 번호를 개별로 입력하세요. (예: 1, 2, 3) 자동으로 연속된 번호는 범위로 변환됩니다. (1-3)
+                </p>
                 {episodes.map((episode, index) => (
                   <div key={index} className="episode-input">
                     <Input
-                      type="text"
+                      type="number"
+                      min="1"
                       value={episode}
                       onChange={(e) => updateEpisode(index, e.target.value)}
-                      placeholder={`에피소드 ${index + 1}`}
+                      placeholder={`에피소드 ${index + 1} (숫자만)`}
                       className="episode-input-field"
                     />
                     {episodes.length > 1 && (
@@ -226,6 +330,15 @@ function App() {
                   >
                     에피소드 추가
                   </Button>
+                )}
+                
+                {/* 미리보기 */}
+                {episodes.some(ep => ep.trim()) && (
+                  <div className="episode-preview">
+                    <small>
+                      <strong>변환 결과:</strong> {convertEpisodesToRange(episodes) || '유효한 에피소드를 입력하세요'}
+                    </small>
+                  </div>
                 )}
               </SettingsSection>
 
@@ -264,7 +377,7 @@ function App() {
                 <Button
                   priority="primary"
                   size="middle"
-                  onClick={() => window.open('https://google.com', '_blank')}
+                  onClick={() => window.open('https://docs.google.com/spreadsheets/d/1oYi9dxDl3HcPzld3mZlXFXAEK5V0HU22HZLthCqmMgo/edit?gid=0#gid=0', '_blank')}
                 >
                   생성 코멘트 목록 열기
                 </Button>
@@ -277,7 +390,7 @@ function App() {
                 <Button
                   priority="primary"
                   size="middle"
-                  onClick={() => window.open('https://google.com', '_blank')}
+                  onClick={() => window.open('https://docs.google.com/spreadsheets/d/1oYi9dxDl3HcPzld3mZlXFXAEK5V0HU22HZLthCqmMgo/edit?gid=273059995#gid=273059995', '_blank')}
                 >
                   종합 피드백 목록 열기
                 </Button>
@@ -290,7 +403,7 @@ function App() {
                 <Button
                   priority="primary"
                   size="middle"
-                  onClick={() => window.open('https://google.com', '_blank')}
+                  onClick={() => window.open('https://docs.google.com/spreadsheets/d/1oYi9dxDl3HcPzld3mZlXFXAEK5V0HU22HZLthCqmMgo/edit?gid=1275925141#gid=1275925141', '_blank')}
                 >
                   슬랙 피드백 발송 이력 열기
                 </Button>
