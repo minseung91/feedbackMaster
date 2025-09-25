@@ -323,9 +323,8 @@ def generate_scoring_report(unified_tag_counts, total_textboxes):
 """
     
     for score_info in category_scores:
-        weighted_mark = " (가중치)" if score_info["weighted"] else ""
         report += f"""
-▶ {score_info['category']} ({score_info['category_en']}){weighted_mark}
+▶ {score_info['category']} ({score_info['category_en']})
   - 발생 횟수: {score_info['total_count']}회
   - 발생 비율: {score_info['percentage']:.1f}%
   - 평가: {score_info['grade']}
