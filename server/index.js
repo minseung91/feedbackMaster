@@ -7,7 +7,7 @@ const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 4220;
-const SCRIPT_PATH = process.env.SCRIPT_PATH || '/Users/p-152/Desktop/Project/Ongoing/aws-agent-practice/process/run_pipeline.sh';
+const SCRIPT_PATH = process.env.SCRIPT_PATH || path.join(__dirname, '..', 'scripts', 'run_pipeline.sh');
 const CONDA_ENV = process.env.CONDA_ENV || 'aws-agent'; // conda 환경 이름
 
 // CORS 설정 - 프론트엔드에서 접근할 수 있도록
