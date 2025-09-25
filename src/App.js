@@ -347,11 +347,11 @@ function App() {
                 <RadioGroup
                   name="guideDocumentOption"
                   options={[
-                    { value: true, label: '가이드 문서 있음' },
-                    { value: false, label: '가이드 문서 없음' }
+                    { value: 'true', label: '가이드 문서 있음' },
+                    { value: 'false', label: '가이드 문서 없음' }
                   ]}
-                  selectedValue={hasGuideDocument}
-                  onChange={setHasGuideDocument}
+                  value={hasGuideDocument ? 'true' : 'false'}
+                  onChange={(e) => setHasGuideDocument(e.target.value === 'true')}
                 />
                 
                 {hasGuideDocument && (
